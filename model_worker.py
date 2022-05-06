@@ -81,7 +81,7 @@ def run_ineference(model, image, image_path, device):
         result_image = draw_result_boxes(image_tile, boxes, score_threshold)
         result_images.append(result_image)
 
-        if not boxes:
+        if len(boxes) == 0:
             continue
         xmin, ymin, w, h = tiler_crop
         xmax = xmin + w
@@ -102,7 +102,7 @@ def run_ineference(model, image, image_path, device):
         if ymax > image_height:
             bbox_ymax = image_height
 
-        detection_tiles.append([(bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax)])
+        detection_tiles.append((bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax))
 
     return result_images, detection_tiles
 
