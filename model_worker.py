@@ -62,47 +62,52 @@ def prepare_model_input(img):
 
 
 def run_ineference(model, image, image_path, device):
-    transform = T.Compose([T.ToPILImage(), T.ToTensor()])
-
-    # model_input = transform(image).unsqueeze(0)
-    # model_input = model_input.to(device)
     _, image_height, image_width = image.shape
-    model_tile_indexes = []
-    model_input_tiles = []
+
     score_threshold = .5
     result_images = []
-    out_dir_name = 'tile_output'
-    shutil.rmtree(out_dir_name, ignore_errors=True)
-    os.makedirs(out_dir_name, exist_ok=True)
+    detection_tiles = []
     cv2_image = cv2.imread(image_path)
 
     image_tiles, tiler_crops = get_slices(cv2_image, 224, 0)
     boxes = []
-    import pickle
-    for (i, (image_tile, tiler_crop)) in enumerate(zip(image_tiles, tiler_crops)):
-        # print("@@@@", type(image_tile), tiler_crop)
+
+    for image_tile, tiler_crop in zip(image_tiles, tiler_crops):
+        outputs = model(prepare_model_input(image_tile).to(device))
+
+        model_output = outputs[0]
+        boxes = model_output['boxes'][model_output['scores'] > score_threshold]
+
+        result_image = draw_result_boxes(image_tile, boxes, score_threshold)
+        result_images.append(result_image)
+
+        if not boxes:
+            continue
         xmin, ymin, w, h = tiler_crop
         xmax = xmin + w
         ymax = ymin + h
-        # if xmin < (image_width*0.4) or xmin > (image_width*0.7):
-        #     continue
 
-        # if xmin < 0 or ymin < 0 or xmax > image_width or ymax > image_height:
-        #     continue
+        bbox_xmin = xmin
+        bbox_xmax = xmax
+        bbox_ymin = ymin
+        bbox_ymax = ymax
 
-        # model_tile_indexes.append(i)
-        # model_input_tiles.append(transform(image_tile).to(device))
-        outputs = model(prepare_model_input(image_tile).to(device))
+        # Adjust tiles that are outside image bounds
+        if xmin < 0:
+            bbox_xmin = 0
+        if ymin < 0:
+            bbox_ymin = 0
+        if xmax > image_width:
+            bbox_xmax = image_width
+        if ymax > image_height:
+            bbox_ymax = image_height
 
-        # print("@@@@", type(image_tile))
-        model_output = outputs[0]
-        boxes = model_output['boxes'][model_output['scores'] > score_threshold]
-        result_image = draw_result_boxes(image_tile, boxes, score_threshold)
+        detection_tiles.append([(bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax)])
 
-        # cv2.rectangle(cv2_image, (xmin, ymin), (xmax, ymax), (0, 255, 0))
-        result_images.append(result_image)
-        # break
+    return result_images, detection_tiles
 
+
+def display_inference_results(result_images):
     grid = make_grid(result_images, 18)
     show(grid)
     plt.show()
@@ -118,7 +123,13 @@ def main(model_path, image_path):
     model = torch.load(model_path, map_location=device)
     model.eval()
 
-    run_ineference(model, img, image_path, device)
+    result_images, detection_tiles = run_ineference(
+        model, img, image_path, device)
+
+    if __name__ == '__main__':
+        display_inference_results(result_images)
+    else:
+        return detection_tiles
 
 
 if __name__ == "__main__":

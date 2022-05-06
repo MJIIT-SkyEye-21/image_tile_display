@@ -160,11 +160,9 @@ class MainWindow(QWidget):
     def start_inference(self):
         self.event_sink.inference_started.emit()
         import model_worker
-        # bboxes = model_worker.main(model_path, image_path)
 
         # Boxes are in x1, y1, x2, y2 format
-        bboxes = [(150, 150, 600, 600)]
-
+        bboxes = model_worker.main(self.model_path, self.image_path)
         image = self.draw_boxes(self.image, bboxes)
         self._display_scaled_image(image)
         self.event_sink.inference_completed.emit()
