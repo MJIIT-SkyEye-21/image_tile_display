@@ -72,37 +72,44 @@ def run_ineference(model, image, image_path, device):
     image_tiles, tiler_crops = get_slices(cv2_image, 224, 0)
     boxes = []
 
-    for image_tile, tiler_crop in zip(image_tiles, tiler_crops):
-        outputs = model(prepare_model_input(image_tile).to(device))
+    work_units = list(zip(image_tiles, tiler_crops))
+    batch_size = 5
 
-        model_output = outputs[0]
+    for image_tiles, tiler_crops in np.array_split(work_units, batch_size):
+        outputs = model(prepare_model_input(image_tiles).to(device))
+
+        model_output = outputs
         boxes = model_output['boxes'][model_output['scores'] > score_threshold]
 
-        result_image = draw_result_boxes(image_tile, boxes, score_threshold)
-        result_images.append(result_image)
+        for i, image_tile in enumerate(image_tiles):
+            result_image = draw_result_boxes(
+                image_tile, boxes[i], score_threshold)
+            result_images.append(result_image)
 
-        if len(boxes) == 0:
-            continue
-        xmin, ymin, w, h = tiler_crop
-        xmax = xmin + w
-        ymax = ymin + h
+        for tiler_crop, tile_boxes in zip(tiler_crops, boxes):
+            if len(tile_boxes) == 0:
+                continue
+            xmin, ymin, w, h = tiler_crop
+            xmax = xmin + w
+            ymax = ymin + h
 
-        bbox_xmin = xmin
-        bbox_xmax = xmax
-        bbox_ymin = ymin
-        bbox_ymax = ymax
+            bbox_xmin = xmin
+            bbox_xmax = xmax
+            bbox_ymin = ymin
+            bbox_ymax = ymax
 
-        # Adjust tiles that are outside image bounds
-        if xmin < 0:
-            bbox_xmin = 0
-        if ymin < 0:
-            bbox_ymin = 0
-        if xmax > image_width:
-            bbox_xmax = image_width
-        if ymax > image_height:
-            bbox_ymax = image_height
+            # Adjust tiles that are outside image bounds
+            if xmin < 0:
+                bbox_xmin = 0
+            if ymin < 0:
+                bbox_ymin = 0
+            if xmax > image_width:
+                bbox_xmax = image_width
+            if ymax > image_height:
+                bbox_ymax = image_height
 
-        detection_tiles.append((bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax))
+            detection_tiles.append(
+                (bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax))
 
     return result_images, detection_tiles
 
