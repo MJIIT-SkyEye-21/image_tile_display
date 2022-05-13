@@ -4,7 +4,6 @@ from torchvision.utils import make_grid, draw_bounding_boxes
 from torchvision.io import read_image
 import matplotlib.pyplot as plt
 from PIL import Image
-import shutil
 import os
 import cv2
 import torch
@@ -13,6 +12,7 @@ import numpy as np
 
 plt.rcParams["savefig.bbox"] = 'tight'
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+BATCH_SIZE = 10
 
 
 def show(imgs):
@@ -48,17 +48,24 @@ def draw_result_boxes(cv2_image, boxes, score_threshold):
     )
 
 
-def prepare_model_input(img):
+def images_to_tensors(images):
     # img = Image.open(image_path)
     # img = np.array(img)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    PIL_image = Image.fromarray(img)
-    img = T.ToTensor()(PIL_image)
-    img = img.float()
-    img = img.unsqueeze(0)
-    img = img.cuda()
+    cuda_images = []
 
-    return img
+    for img in images:
+        # TODO: should we remove this conversion and
+        # perform inference on BGR images?
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        PIL_image = Image.fromarray(img)
+        img = T.ToTensor()(PIL_image)
+        img = img.float()
+        img = img.unsqueeze(0)
+        cuda_images.append(img)
+
+    cuda_images = np.stack(cuda_images)
+    cuda_images = np.squeeze(cuda_images)
+    return torch.from_numpy(cuda_images)
 
 
 def run_ineference(model, image, image_path, device):
@@ -73,20 +80,30 @@ def run_ineference(model, image, image_path, device):
     boxes = []
 
     work_units = list(zip(image_tiles, tiler_crops))
-    batch_size = 5
+    num_splits = len(work_units) // BATCH_SIZE
 
-    for image_tiles, tiler_crops in np.array_split(work_units, batch_size):
-        outputs = model(prepare_model_input(image_tiles).to(device))
+    for batch in np.array_split(work_units, num_splits):
+        batch_tiles = []
+        crop_tiles = []
+        for (tile, crop) in batch:
+            batch_tiles.append(tile)
+            crop_tiles.append(crop)
 
-        model_output = outputs
-        boxes = model_output['boxes'][model_output['scores'] > score_threshold]
+        batch_tensors = images_to_tensors(batch_tiles)
+        model_output = model(batch_tensors.to(device))
+        print('Processed:', len(batch_tiles), 'tiles')
 
-        for i, image_tile in enumerate(image_tiles):
+        batch_boxes = []
+        for i, image_tile in enumerate(batch_tiles):
+            boxes = model_output[i]['boxes'][model_output[i]
+                                             ['scores'] > score_threshold]
+
             result_image = draw_result_boxes(
-                image_tile, boxes[i], score_threshold)
+                image_tile, boxes, score_threshold)
             result_images.append(result_image)
+            batch_boxes.append(boxes)
 
-        for tiler_crop, tile_boxes in zip(tiler_crops, boxes):
+        for tiler_crop, tile_boxes in zip(crop_tiles, batch_boxes):
             if len(tile_boxes) == 0:
                 continue
             xmin, ymin, w, h = tiler_crop

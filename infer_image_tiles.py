@@ -3,8 +3,6 @@ from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import (QApplication, QFileDialog, QLabel, QGridLayout, QFormLayout,
                              QWidget, QPushButton, QHBoxLayout, QVBoxLayout, QFrame, QLineEdit
                              )
-from PyQt5.QtGui import QPixmap
-
 import cv2
 
 
@@ -17,8 +15,11 @@ class UiEventSink(QtCore.QObject):
 
 class MainWindow(QWidget):
 
-    def __init__(self):
+    def __init__(self, image_path=None, model_path=None):
         super().__init__()
+        self.model_path = model_path
+        self.image_path = image_path
+
         self.event_sink: UiEventSink = UiEventSink()
         self.event_sink.model_loaded.connect(self.on_model_loaded)
         self.event_sink.image_loaded.connect(self.on_image_loaded)
@@ -39,6 +40,7 @@ class MainWindow(QWidget):
 
         self.setGeometry(500, 250, (3840//4), (2160//4)+300)
         self.setWindowTitle("PyQT show image")
+
         self.show()
 
     def _make_action_buttons(self):
@@ -94,8 +96,6 @@ class MainWindow(QWidget):
             ["Images (*.png *.jpg *.jpeg *.bmp *.JPG *.JPEG *.BMP)"]
         )
 
-        print('Files:', file)
-
         cv_image = cv2.imread(file)
         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
 
@@ -103,9 +103,6 @@ class MainWindow(QWidget):
         self.image_path = file
         self.event_sink.image_loaded.emit()
         self._display_scaled_image(self.image)
-
-        # self.image_label.setPixmap(QPixmap(file))
-        # self.setFixedSize(self.grid.sizeHint())
 
     def _display_scaled_image(self, cv_image):
         self.image_label.clear()
@@ -181,6 +178,11 @@ class MainWindow(QWidget):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--model_path")
+    parser.add_argument("-i", "--image_path")
+
     app = QApplication(sys.argv)
-    ex = MainWindow()
+    ex = MainWindow(**vars(parser.parse_args()))
     sys.exit(app.exec_())
