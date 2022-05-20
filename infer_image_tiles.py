@@ -1,9 +1,11 @@
 import sys
+from inference_thread import InferenceThread
+import cv2
+import numpy as np
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import (QApplication, QFileDialog, QLabel, QGridLayout, QFormLayout,
                              QWidget, QPushButton, QHBoxLayout, QVBoxLayout, QFrame, QLineEdit
                              )
-import cv2
 
 
 class UiEventSink(QtCore.QObject):
@@ -24,7 +26,7 @@ class MainWindow(QWidget):
         self.event_sink.model_loaded.connect(self.on_model_loaded)
         self.event_sink.image_loaded.connect(self.on_image_loaded)
         self.event_sink.inference_started.connect(self.on_start_inference)
-        self.event_sink.inference_completed.connect(self.on_inference_complete)
+        # self.event_sink.inference_completed.connect(self.on_inference_complete)
 
         self.image_label = QLabel()
         self.image_label.setGeometry(QtCore.QRect(10, 10, 1280, 720))
@@ -96,6 +98,11 @@ class MainWindow(QWidget):
             ["Images (*.png *.jpg *.jpeg *.bmp *.JPG *.JPEG *.BMP)"]
         )
 
+        if not file:
+            return
+
+        print('Files:', file)
+
         cv_image = cv2.imread(file)
         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
 
@@ -127,6 +134,8 @@ class MainWindow(QWidget):
         file = self._open_file_dialog(
             ["Models (*.pth)"]
         )
+        if not file:
+            return
         self.model_path = file
         self.event_sink.model_loaded.emit()
 
@@ -144,9 +153,11 @@ class MainWindow(QWidget):
         self.inference_button.setText("Inference in progress...")
         self.inference_button.setDisabled(True)
 
-    def on_inference_complete(self):
+    @QtCore.pyqtSlot(np.ndarray)
+    def on_inference_complete(self, cv_image):
         self.inference_button.setText("Start inference")
         self.inference_button.setDisabled(False)
+        self._display_scaled_image(cv_image)
 
     def _open_file_dialog(self, name_filters):
         dlg = QFileDialog()
@@ -157,24 +168,18 @@ class MainWindow(QWidget):
     def start_inference(self):
         # Disable inference button
         self.event_sink.inference_started.emit()
-        QtCore.QTimer.singleShot(0, self._run_inference)
+        self.inference_worker = InferenceThread(
+            self.model_path, self.image_path)
+        self.inference_worker.status_update.connect(self.set_status)
+        self.inference_worker.on_result_image.connect(
+            self.on_inference_complete)
+        self.inference_worker.start()
 
-    def _run_inference(self):
-        import model_worker
-        # Boxes are in x1, y1, x2, y2 format
-        bboxes = model_worker.main(self.model_path, self.image_path)
-        # bboxes = [(150, 150, 600, 600)]
-        image = self.draw_boxes(self.image, bboxes)
-        self._display_scaled_image(image)
-        self.event_sink.inference_completed.emit()
-
-    def draw_boxes(self, cv_image, bboxes):
-        bbox_image = cv_image.copy()
-        for box in bboxes:
-            x1, y1, x2, y2 = box
-            cv2.rectangle(bbox_image, (x1, y1), (x2, y2), (0, 255, 0), 12)
-
-        return bbox_image
+    @QtCore.pyqtSlot(str)
+    def set_status(self, status):
+        self.inference_button.setText(status)
+        if status == "Finished":
+            self.event_sink.inference_completed.emit()
 
 
 if __name__ == '__main__':
