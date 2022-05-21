@@ -28,8 +28,8 @@ class InferenceThread(QtCore.QThread):
         self.status_update.emit(update_string)
 
     def run(self):
-        import model_worker
-        detection_tiles = model_worker.main(
+        import defect_worker
+        detection_tiles = defect_worker.main(
             self.model_path, 
             self.image_path, 
             lambda update_str: self._emit_status_update(update_str)
