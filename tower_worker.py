@@ -62,7 +62,7 @@ def get_widest_rectangle(bboxes):
     ymins = bboxes[:, 1]
     ymaxs = bboxes[:, 3]
 
-    return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)])).unsqueeze(0)
+    return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)]))
 
 
 def run_ineference(model, cv2_image, device, update_func=None):
