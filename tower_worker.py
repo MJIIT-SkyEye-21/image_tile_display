@@ -1,7 +1,6 @@
 from pytorch_toolbelt.inference.tiles import ImageSlicer
 import torchvision.transforms as T
 from torchvision.utils import make_grid, draw_bounding_boxes
-from torchvision.io import read_image
 import matplotlib.pyplot as plt
 from PIL import Image
 import os
@@ -63,13 +62,10 @@ def get_widest_rectangle(bboxes):
     ymins = bboxes[:, 1]
     ymaxs = bboxes[:, 3]
 
-
     return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)])).unsqueeze(0)
 
 
-def run_ineference(model, image_path, device, update_func=None):
-
-    cv2_image = cv2.imread(image_path)
+def run_ineference(model, cv2_image, device, update_func=None):
     tensor = image_to_tensor(cv2_image)
     tensor = tensor.to(device)
     with torch.no_grad():
@@ -77,10 +73,8 @@ def run_ineference(model, image_path, device, update_func=None):
         output = output[0]
         bboxes = output['boxes'][output['scores'] > SCORE_THRESHOLD].to('cpu')
         widest_rectangle = get_widest_rectangle(bboxes)
-        
-        result_image = draw_result_boxes(cv2_image, widest_rectangle)
 
-    return result_image, widest_rectangle
+    return widest_rectangle
 
 
 def main(model_path, image_path, update_func=None):
@@ -93,13 +87,14 @@ def main(model_path, image_path, update_func=None):
     model = torch.load(model_path, map_location=device)
     model.eval()
 
-    result_images, detection_tiles = run_ineference(
-        model, image_path, device, update_func)
+    cv2_image = cv2.imread(image_path)
+    tower_bbox = run_ineference(model, cv2_image, device, update_func)
 
     if __name__ == '__main__':
-        display_inference_results(result_images)
+        result_image = draw_result_boxes(cv2_image, tower_bbox)
+        display_inference_results(result_image)
     else:
-        return detection_tiles
+        return tower_bbox
 
 
 if __name__ == "__main__":
