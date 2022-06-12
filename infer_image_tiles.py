@@ -17,9 +17,10 @@ class UiEventSink(QtCore.QObject):
 
 class MainWindow(QWidget):
 
-    def __init__(self, image_path=None, model_path=None):
+    def __init__(self, image_path=None, tower_model_path=None, defect_model_path=None):
         super().__init__()
-        self.model_path = model_path
+        self.defect_model_path = defect_model_path
+        self.tower_model_path = tower_model_path
         self.image_path = image_path
 
         self.event_sink: UiEventSink = UiEventSink()
@@ -78,12 +79,21 @@ class MainWindow(QWidget):
         load_image_button = QPushButton("Load image")
         load_image_button.clicked.connect(self.select_image_path)
 
-        self.load_model_button = QPushButton("Load model")
-        self.load_model_button.clicked.connect(self.select_model_path)
-        self.load_model_button.setDisabled(True)
+        self.load_tower_model_button = QPushButton("Load tower model")
+        self.load_tower_model_button.clicked.connect(
+            self.select_model_path("tower_model_path")
+        )
+        self.load_tower_model_button.setDisabled(True)
+
+        self.load_defect_model_button = QPushButton("Load defect model")
+        self.load_defect_model_button.clicked.connect(
+            self.select_model_path("defect_model_path")
+        )
+        self.load_defect_model_button.setDisabled(True)
 
         grid.addWidget(load_image_button)
-        grid.addWidget(self.load_model_button)
+        grid.addWidget(self.load_tower_model_button)
+        grid.addWidget(self.load_defect_model_button)
 
         return grid
 
@@ -130,20 +140,24 @@ class MainWindow(QWidget):
         self.image_label.setPixmap(smaller_pixmap)
         pass
 
-    def select_model_path(self):
-        file = self._open_file_dialog(
-            ["Models (*.pth)"]
-        )
-        if not file:
-            return
-        self.model_path = file
-        self.event_sink.model_loaded.emit()
+    def select_model_path(self, model_variable_name):
+        def load_model_action():
+            file = self._open_file_dialog(
+                ["Models (*.pth)"]
+            )
+            if not file:
+                return
+            self.__dict__[model_variable_name] = file
+            self.event_sink.model_loaded.emit()
 
-        print('Files:', file)
+            print(f'{model_variable_name} model:', file)
+
+        return load_model_action
 
     def on_image_loaded(self):
         # Update image path label
-        self.load_model_button.setEnabled(True)
+        self.load_defect_model_button.setEnabled(True)
+        self.load_tower_model_button.setEnabled(True)
 
     def on_model_loaded(self):
         # Update model path label
@@ -169,7 +183,10 @@ class MainWindow(QWidget):
         # Disable inference button
         self.event_sink.inference_started.emit()
         self.inference_worker = InferenceThread(
-            self.model_path, self.image_path)
+            self.tower_model_path,
+            self.defect_model_path,
+            self.image_path
+        )
         self.inference_worker.status_update.connect(self.set_status)
         self.inference_worker.on_result_image.connect(
             self.on_inference_complete)
@@ -185,7 +202,8 @@ class MainWindow(QWidget):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model_path")
+    parser.add_argument("-t", "--tower_model_path")
+    parser.add_argument("-d", "--defect_model_path")
     parser.add_argument("-i", "--image_path")
 
     app = QApplication(sys.argv)
