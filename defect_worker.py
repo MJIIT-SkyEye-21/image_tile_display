@@ -76,7 +76,7 @@ def images_to_tensors(images):
 #         return bbox_image
 
 
-def run_ineference(model, image, image_path, device, update_func=None):
+def run_ineference(model, image, image_path, update_func=None):
     _, image_height, image_width = image.shape
 
     score_threshold = .5
@@ -100,13 +100,14 @@ def run_ineference(model, image, image_path, device, update_func=None):
             crop_tiles.append(crop)
 
         batch_tensors = images_to_tensors(batch_tiles)
-        model_output = model(batch_tensors.to(device))
+        model_output = model(batch_tensors.to(_get_device()))
 
         if update_func:
             tiles_processed += len(batch_tiles)
-            status = 'Processed: {}/{}'.format(tiles_processed, len(work_units))
+            status = 'Processed: {}/{}'.format(tiles_processed,
+                                               len(work_units))
             update_func(status)
-            
+
         print('Processed:', len(batch_tiles), 'tiles')
 
         batch_boxes = []
@@ -153,18 +154,45 @@ def display_inference_results(result_images):
     plt.show()
 
 
-def main(model_path, image_path, update_func=None):
-    device = torch.device(
-        'cuda') if torch.cuda.is_available() else torch.device('cpu')
+def _get_device():
+    return torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
+
+def _get_model(model_path):
+    model = torch.load(model_path, map_location=_get_device())
+    model.eval()
+
+    return model
+
+
+def process_batch(model_path, image_paths):
+    model = _get_model(model_path)
+    results = []
+
+    for image_path in image_paths:
+        img = read_image(image_path)
+        _, detection_tiles = run_ineference(
+            model,
+            img,
+            image_path
+        )
+
+        results.append((image_path, detection_tiles))
+
+    return results
+
+
+def main(model_path, image_path, update_func=None):
+    model = _get_model(model_path)
     # Load image as PIL.Image
     img = read_image(image_path)
 
-    model = torch.load(model_path, map_location=device)
-    model.eval()
-
     result_images, detection_tiles = run_ineference(
-        model, img, image_path, device, update_func)
+        model,
+        img,
+        image_path,
+        update_func
+    )
 
     if __name__ == '__main__':
         display_inference_results(result_images)
