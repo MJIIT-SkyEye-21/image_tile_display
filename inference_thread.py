@@ -11,23 +11,31 @@ class InferenceThread(QtCore.QThread):
         super(InferenceThread, self).__init__()
         self.defect_model_path = str(defect_model_path)
         self.tower_model_path = str(tower_model_path)
-        self.image_path = str(image_path)
-        self.detector = detection_facade.DetectionFacade()
+        self.detector = detection_facade.DetectionFacade(str(image_path))
 
     def _emit_status_update(self, update_string):
         self.status_update.emit(update_string)
 
     def run(self):
         self._emit_status_update("Detecting tower...")
-        self.detector.detect_tower(
-            self.tower_model_path, self.image_path)
+        tower_bbox = self.detector.detect_tower(self.tower_model_path)
         self._emit_status_update("Tower detection complete")
 
-        self.detector.detect_defects(
+        defect_bboxes = self.detector.detect_defects(
             self.defect_model_path,
-            self.image_path,
             lambda update_str: self._emit_status_update(update_str)
         )
 
-        cv2_image = self.detector.draw_detection_boxes(self.image_path)
+        green_bgr = (0, 255, 0)
+        bbox_group = detection_facade.DefectBoxGroup(
+            'defect',
+            green_bgr,
+            defect_bboxes
+        )
+
+        cv2_image = self.detector.draw_detection_boxes(
+            [bbox_group],
+            tower_bbox
+        )
+
         self.on_result_image.emit(cv2_image)
