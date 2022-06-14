@@ -15,7 +15,7 @@ def _is_inside_bbox(det, background):
     return xmin >= xmin_bg and xmax <= xmax_bg and ymin >= ymin_bg and ymax <= ymax_bg
 
 
-def draw_boxes(cv_image, detection_box_groups: List[DefectBoxGroup], tower_bbox):
+def draw_boxes(cv_image, tower_bbox, detection_box_groups: List[DefectBoxGroup]):
     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
 
     for box_group in detection_box_groups:
@@ -30,7 +30,6 @@ def draw_boxes(cv_image, detection_box_groups: List[DefectBoxGroup], tower_bbox)
                           (xmax, ymax), box_group.bgr_color, 2)
 
     if tower_bbox is not None:
-        tower_bbox = tower_bbox.numpy()
         xmin, ymin, xmax, ymax = [int(x) for x in tower_bbox]
         cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
 
@@ -57,8 +56,9 @@ class DetectionFacade(object):
         cv2_image = cv2.imread(self.image_path)
         cv2_image = draw_boxes(
             cv2_image,
+            tower_bbox,
             defect_bbox_groups,
-            tower_bbox
+
         )
 
         return cv2_image

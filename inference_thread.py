@@ -34,8 +34,8 @@ class InferenceThread(QtCore.QThread):
         )
 
         cv2_image = self.detector.draw_detection_boxes(
-            [bbox_group],
-            tower_bbox
+            tower_bbox,
+            [bbox_group]
         )
 
         self.on_result_image.emit(cv2_image)
