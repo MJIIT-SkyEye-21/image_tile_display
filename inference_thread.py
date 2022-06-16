@@ -1,6 +1,6 @@
 import numpy as np
 from PyQt5 import QtCore
-import detection_facade
+from detection_facade import BoundingBoxGroup, DetectionFacade
 
 
 class InferenceThread(QtCore.QThread):
@@ -11,7 +11,7 @@ class InferenceThread(QtCore.QThread):
         super(InferenceThread, self).__init__()
         self.defect_model_path = str(defect_model_path)
         self.tower_model_path = str(tower_model_path)
-        self.detector = detection_facade.DetectionFacade(str(image_path))
+        self.detector = DetectionFacade(str(image_path))
 
     def _emit_status_update(self, update_string):
         self.status_update.emit(update_string)
@@ -27,15 +27,36 @@ class InferenceThread(QtCore.QThread):
         )
 
         green_bgr = (0, 255, 0)
-        bbox_group = detection_facade.DefectBoxGroup(
+        gp1 = BoundingBoxGroup(
             'defect',
             green_bgr,
             defect_bboxes
         )
 
-        cv2_image = self.detector.draw_detection_boxes(
-            tower_bbox,
-            [bbox_group]
+        gp_tower = BoundingBoxGroup(
+            'tower',
+            (255, 255, 0),
+            [tower_bbox]
         )
 
+        cv2_image = self.detector.draw_detection_boxes(
+            gp_tower,
+            [gp1]
+        )
+
+        # import cv2
+        # cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+        # cv2.imwrite('test.jpg', cv2_image)
         self.on_result_image.emit(cv2_image)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("tower_model_path")
+    parser.add_argument("defect_model_path")
+    parser.add_argument("image_path")
+
+    th = InferenceThread(**vars(parser.parse_args()))
+    th.run()

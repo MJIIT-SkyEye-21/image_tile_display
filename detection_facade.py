@@ -2,7 +2,7 @@ import cv2
 from typing import List
 
 
-class DefectBoxGroup(object):
+class BoundingBoxGroup(object):
     def __init__(self, label, bgr_color, bboxes) -> None:
         self.label = label
         self.bgr_color = bgr_color
@@ -15,13 +15,20 @@ def _is_inside_bbox(det, background):
     return xmin >= xmin_bg and xmax <= xmax_bg and ymin >= ymin_bg and ymax <= ymax_bg
 
 
-def draw_boxes(cv_image, tower_bbox, detection_box_groups: List[DefectBoxGroup]):
+def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_groups: List[BoundingBoxGroup]):
     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
 
+    if not tower_bbox_group.bboxes:
+        tower_bbox = None
+    else:
+        tower_bbox = tower_bbox_group.bboxes[0]
+
+    print("Tower box:", tower_bbox)
     for box_group in detection_box_groups:
         for box in box_group.bboxes:
 
-            if not _is_inside_bbox(box, tower_bbox):
+            if tower_bbox is not None and not _is_inside_bbox(box, tower_bbox):
+                print("Skipping BBOX:", box, "because it is outside the tower")
                 continue
 
             xmin, ymin, xmax, ymax = [int(x) for x in box]
@@ -31,7 +38,8 @@ def draw_boxes(cv_image, tower_bbox, detection_box_groups: List[DefectBoxGroup])
 
     if tower_bbox is not None:
         xmin, ymin, xmax, ymax = [int(x) for x in tower_bbox]
-        cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
+        cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax),
+                      tower_bbox_group.bgr_color, 2)
 
     return cv_image
 
@@ -52,7 +60,7 @@ class DetectionFacade(object):
             lambda update_str: on_status_update(update_str)
         )
 
-    def draw_detection_boxes(self, tower_bbox, defect_bbox_groups: List[DefectBoxGroup]):
+    def draw_detection_boxes(self, tower_bbox, defect_bbox_groups: List[BoundingBoxGroup]):
         cv2_image = cv2.imread(self.image_path)
         cv2_image = draw_boxes(
             cv2_image,
