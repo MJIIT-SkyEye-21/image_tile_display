@@ -38,15 +38,27 @@ class InferenceThread(QtCore.QThread):
             (255, 255, 0),
             [tower_bbox]
         )
-
         cv2_image = self.detector.draw_detection_boxes(
             gp_tower,
             [gp1]
         )
 
-        # import cv2
-        # cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
-        # cv2.imwrite('test.jpg', cv2_image)
+        # results = self.detector.batch_detect_defects(
+        #     self.defect_model_path, [self.detector.image_path])
+
+        # for (k, bboxes) in results.items():
+        #     print(k, bboxes)
+
+        #     box_group = BoundingBoxGroup('defect', green_bgr, bboxes)
+        #     cv2_image = self.detector.draw_detection_boxes(
+        #         gp_tower,
+        #         [box_group]
+        #     )
+        #     cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+        #     cv2.imwrite('test.jpg', cv2_image)
+        import cv2
+        cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+        cv2.imwrite('test.jpg', cv2_image)
         self.on_result_image.emit(cv2_image)
 
 
