@@ -11,54 +11,60 @@ class InferenceThread(QtCore.QThread):
         super(InferenceThread, self).__init__()
         self.defect_model_path = str(defect_model_path)
         self.tower_model_path = str(tower_model_path)
-        self.detector = DetectionFacade(str(image_path))
+        self.detector = DetectionFacade()
+        self.image_path = str(image_path)
 
     def _emit_status_update(self, update_string):
         self.status_update.emit(update_string)
 
     def run(self):
         self._emit_status_update("Detecting tower...")
-        tower_bbox = self.detector.detect_tower(self.tower_model_path)
+        tower_bbox = self.detector.detect_tower(
+            self.tower_model_path, self.image_path
+        )
         self._emit_status_update("Tower detection complete")
-
-        defect_bboxes = self.detector.detect_defects(
-            self.defect_model_path,
-            lambda update_str: self._emit_status_update(update_str)
-        )
-
         green_bgr = (0, 255, 0)
-        gp1 = BoundingBoxGroup(
-            'defect',
-            green_bgr,
-            defect_bboxes
-        )
+        # defect_bboxes = self.detector.detect_defects(
+        #     self.defect_model_path,
+        #     self.image_path,
+        #     lambda update_str: self._emit_status_update(update_str)
+        # )
+
+        # gp1 = BoundingBoxGroup(
+        #     'defect',
+        #     green_bgr,
+        #     defect_bboxes
+        # )
+
+        # cv2_image = self.detector.draw_detection_boxes(
+        #     self.image_path,
+        #     gp_tower,
+        #     [gp1]
+        # )
 
         gp_tower = BoundingBoxGroup(
             'tower',
             (255, 255, 0),
             [tower_bbox]
         )
-        cv2_image = self.detector.draw_detection_boxes(
-            gp_tower,
-            [gp1]
-        )
+        results = self.detector.batch_detect_defects(
+            self.defect_model_path, [self.image_path])
 
-        # results = self.detector.batch_detect_defects(
-        #     self.defect_model_path, [self.detector.image_path])
-
-        # for (k, bboxes) in results.items():
-        #     print(k, bboxes)
-
-        #     box_group = BoundingBoxGroup('defect', green_bgr, bboxes)
-        #     cv2_image = self.detector.draw_detection_boxes(
-        #         gp_tower,
-        #         [box_group]
-        #     )
-        #     cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
-        #     cv2.imwrite('test.jpg', cv2_image)
         import cv2
-        cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
-        cv2.imwrite('test.jpg', cv2_image)
+        for (image_path, bboxes) in results.items():
+            print(image_path, "\n", bboxes)
+
+            box_group = BoundingBoxGroup('defect', green_bgr, bboxes)
+            cv2_image = self.detector.draw_detection_boxes(
+                image_path,
+                gp_tower,
+                [box_group]
+            )
+            cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+            cv2.imwrite('test.jpg', cv2_image)
+
+        # cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+        # cv2.imwrite('test.jpg', cv2_image)
         self.on_result_image.emit(cv2_image)
 
 

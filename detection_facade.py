@@ -45,18 +45,15 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
 
 
 class DetectionFacade(object):
-    def __init__(self, image_path) -> None:
-        self.image_path = image_path
-
-    def detect_tower(self, tower_model_path: str) -> List[int]:
+    def detect_tower(self, tower_model_path: str, image_path: str) -> List[int]:
         import tower_worker
-        return tower_worker.main(tower_model_path, self.image_path)
+        return tower_worker.main(tower_model_path, image_path)
 
-    def detect_defects(self, defect_model_path: str, on_status_update: callable) -> List[List[int]]:
+    def detect_defects(self, defect_model_path: str, image_path: str, on_status_update: callable) -> List[List[int]]:
         import defect_worker
         return defect_worker.main(
             defect_model_path,
-            self.image_path,
+            image_path,
             lambda update_str: on_status_update(update_str)
         )
 
@@ -64,8 +61,8 @@ class DetectionFacade(object):
         import defect_worker
         return defect_worker.process_batch(defect_model_path, image_paths)
 
-    def draw_detection_boxes(self, tower_bbox, defect_bbox_groups: List[BoundingBoxGroup]):
-        cv2_image = cv2.imread(self.image_path)
+    def draw_detection_boxes(self, image_path, tower_bbox, defect_bbox_groups: List[BoundingBoxGroup]):
+        cv2_image = cv2.imread(image_path)
         cv2_image = draw_boxes(
             cv2_image,
             tower_bbox,
