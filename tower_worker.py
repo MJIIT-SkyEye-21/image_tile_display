@@ -8,7 +8,6 @@ import cv2
 import torch
 import numpy as np
 
-
 plt.rcParams["savefig.bbox"] = 'tight'
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 INPUT_IMAGE_SIZE = (1000, 800)
@@ -33,7 +32,6 @@ def display_inference_results(result_images):
 
 
 def draw_result_boxes(cv2_image, boxes):
-
     canvas = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
     canvas = Image.fromarray(canvas)
     canvas = T.PILToTensor()(canvas)
@@ -56,7 +54,7 @@ def image_to_tensor(img):
     return img
 
 
-def get_widest_rectangle(bboxes):
+def get_widest_rectangle(bboxes) -> torch.Tensor:
     xmins = bboxes[:, 0]
     xmaxs = bboxes[:, 2]
     ymins = bboxes[:, 1]
@@ -65,7 +63,7 @@ def get_widest_rectangle(bboxes):
     return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)]))
 
 
-def run_ineference(model, cv2_image, device, update_func=None):
+def run_inference(model, cv2_image, device, update_func=None) -> torch.Tensor:
     tensor = image_to_tensor(cv2_image)
     tensor = tensor.to(device)
     with torch.no_grad():
@@ -88,7 +86,8 @@ def main(model_path, image_path, update_func=None):
     model.eval()
 
     cv2_image = cv2.imread(image_path)
-    tower_bbox = run_ineference(model, cv2_image, device, update_func)
+    tower_bbox = run_inference(model, cv2_image, device, update_func)
+    tower_bbox = tower_bbox.numpy()
 
     if __name__ == '__main__':
         result_image = draw_result_boxes(cv2_image, tower_bbox)
@@ -99,6 +98,7 @@ def main(model_path, image_path, update_func=None):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("model_path")
     parser.add_argument("image_path")
