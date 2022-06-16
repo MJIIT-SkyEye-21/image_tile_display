@@ -115,9 +115,9 @@ def run_ineference(model, image, image_path, update_func=None):
             boxes = model_output[i]['boxes'][model_output[i]
                                              ['scores'] > score_threshold]
 
-            result_image = draw_result_boxes(
-                image_tile, boxes, score_threshold)
-            result_images.append(result_image)
+            # result_image = draw_result_boxes(
+            #     image_tile, boxes, score_threshold)
+            # result_images.append(result_image)
             batch_boxes.append(boxes)
 
         for tiler_crop, tile_boxes in zip(crop_tiles, batch_boxes):
@@ -167,7 +167,7 @@ def _get_model(model_path):
 
 def process_batch(model_path, image_paths):
     model = _get_model(model_path)
-    results = {}
+    results = []
 
     for image_path in image_paths:
         img = read_image(image_path)
@@ -177,7 +177,7 @@ def process_batch(model_path, image_paths):
             image_path
         )
 
-        results[image_path] = detection_tiles
+        results.append((image_path, detection_tiles))
 
     return results
 
