@@ -63,9 +63,9 @@ def get_widest_rectangle(bboxes) -> torch.Tensor:
     return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)]))
 
 
-def run_inference(model, cv2_image, device, update_func=None) -> torch.Tensor:
+def run_inference(model, cv2_image, update_func=None) -> torch.Tensor:
     tensor = image_to_tensor(cv2_image)
-    tensor = tensor.to(device)
+    tensor = tensor.to(_get_device())
     with torch.no_grad():
         output = model(tensor)
         output = output[0]
@@ -75,18 +75,21 @@ def run_inference(model, cv2_image, device, update_func=None) -> torch.Tensor:
     return widest_rectangle
 
 
-def main(model_path, image_path, update_func=None):
-    device = torch.device(
+def _get_device():
+    return torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+
+def main(model_path, image_path, update_func=None):
 
     # Load image as tensor
     # img = read_image(image_path)
 
-    model = torch.load(model_path, map_location=device)
+    model = torch.load(model_path, map_location=_get_device())
     model.eval()
 
     cv2_image = cv2.imread(image_path)
-    tower_bbox = run_inference(model, cv2_image, device, update_func)
+    tower_bbox = run_inference(model, cv2_image, update_func)
     tower_bbox = tower_bbox.numpy()
 
     if __name__ == '__main__':
@@ -94,6 +97,22 @@ def main(model_path, image_path, update_func=None):
         display_inference_results(result_image)
     else:
         return tower_bbox
+
+
+def process_batch(model_path, image_paths):
+    model = torch.load(model_path, map_location=_get_device())
+    model.eval()
+
+    results = {}
+
+    for image_path in image_paths:
+        cv2_image = cv2.imread(image_path)
+        tower_bbox = run_inference(model, cv2_image)
+        tower_bbox = tower_bbox.numpy()
+
+        results[image_path] = tower_bbox
+
+    return results
 
 
 if __name__ == "__main__":

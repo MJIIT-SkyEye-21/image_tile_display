@@ -57,6 +57,10 @@ class DetectionFacade(object):
             lambda update_str: on_status_update(update_str)
         )
 
+    def batch_detect_tower(self, tower_model_path: str, image_paths: List[str]):
+        import tower_worker
+        return tower_worker.process_batch(tower_model_path, image_paths)
+
     def batch_detect_defects(self, defect_model_path: str, image_paths: List[str]) -> Dict[str, List[List[int]]]:
         import defect_worker
         return defect_worker.process_batch(defect_model_path, image_paths)
