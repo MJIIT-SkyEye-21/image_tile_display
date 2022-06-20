@@ -80,14 +80,19 @@ def _get_device():
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
+def _get_model(model_path):
+    model = torch.load(model_path, map_location=_get_device())
+    model.eval()
+
+    return model
+
+
 def main(model_path, image_path, update_func=None):
 
     # Load image as tensor
     # img = read_image(image_path)
 
-    model = torch.load(model_path, map_location=_get_device())
-    model.eval()
-
+    model = _get_model(model_path)
     cv2_image = cv2.imread(image_path)
     tower_bbox = run_inference(model, cv2_image, update_func)
     tower_bbox = tower_bbox.numpy()
@@ -100,17 +105,15 @@ def main(model_path, image_path, update_func=None):
 
 
 def process_batch(model_path, image_paths):
-    model = torch.load(model_path, map_location=_get_device())
-    model.eval()
-
-    results = {}
+    model = _get_model(model_path)
+    results = []
 
     for image_path in image_paths:
         cv2_image = cv2.imread(image_path)
         tower_bbox = run_inference(model, cv2_image)
         tower_bbox = tower_bbox.numpy()
 
-        results[image_path] = tower_bbox
+        results.append(tower_bbox)
 
     return results
 

@@ -167,7 +167,7 @@ def _get_model(model_path):
 
 def process_batch(model_path, image_paths):
     model = _get_model(model_path)
-    results = {}
+    results = []
 
     for image_path in image_paths:
         img = read_image(image_path)
@@ -177,7 +177,7 @@ def process_batch(model_path, image_paths):
             image_path
         )
 
-        results[image_path] = detection_tiles
+        results.append(detection_tiles)
 
     return results
 
