@@ -58,15 +58,17 @@ class DetectionFacade(object):
         )
 
     def batch_detect_tower(self, tower_model_path: str, image_paths: List[str]):
-        import tower_worker
+        from . import tower_worker
         return tower_worker.process_batch(tower_model_path, image_paths)
 
     def batch_detect_defects(self, defect_model_path: str, image_paths: List[str]) -> List[List[int]]:
-        import defect_worker
+        from . import defect_worker
         return defect_worker.process_batch(defect_model_path, image_paths)
 
     def draw_detection_boxes(self, image_path, tower_bbox_group: BoundingBoxGroup, defect_bbox_groups: List[BoundingBoxGroup]):
         cv2_image = cv2.imread(image_path)
+        cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+
         cv2_image = draw_boxes(
             cv2_image,
             tower_bbox_group,

@@ -63,7 +63,7 @@ def get_widest_rectangle(bboxes) -> torch.Tensor:
     return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)]))
 
 
-def run_inference(model, cv2_image, update_func=None) -> torch.Tensor:
+def run_inference(model, cv2_image, update_func=None) -> np.ndarray:
     tensor = image_to_tensor(cv2_image)
     tensor = tensor.to(_get_device())
     with torch.no_grad():
@@ -72,7 +72,7 @@ def run_inference(model, cv2_image, update_func=None) -> torch.Tensor:
         bboxes = output['boxes'][output['scores'] > SCORE_THRESHOLD].to('cpu')
         widest_rectangle = get_widest_rectangle(bboxes)
 
-    return widest_rectangle
+    return widest_rectangle.numpy()
 
 
 def _get_device():
@@ -95,7 +95,6 @@ def main(model_path, image_path, update_func=None):
     model = _get_model(model_path)
     cv2_image = cv2.imread(image_path)
     tower_bbox = run_inference(model, cv2_image, update_func)
-    tower_bbox = tower_bbox.numpy()
 
     if __name__ == '__main__':
         result_image = draw_result_boxes(cv2_image, tower_bbox)
@@ -111,7 +110,6 @@ def process_batch(model_path, image_paths):
     for image_path in image_paths:
         cv2_image = cv2.imread(image_path)
         tower_bbox = run_inference(model, cv2_image)
-        tower_bbox = tower_bbox.numpy()
 
         results.append(tower_bbox)
 
