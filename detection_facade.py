@@ -18,7 +18,7 @@ def _is_inside_bbox(det, background):
 def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_groups: List[BoundingBoxGroup]):
     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
 
-    if not tower_bbox_group.bboxes:
+    if len(tower_bbox_group.bboxes) == 0:
         tower_bbox = None
     else:
         tower_bbox = tower_bbox_group.bboxes[0]
