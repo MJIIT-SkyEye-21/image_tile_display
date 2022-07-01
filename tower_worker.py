@@ -60,7 +60,7 @@ def get_widest_rectangle(bboxes) -> torch.Tensor:
     ymins = bboxes[:, 1]
     ymaxs = bboxes[:, 3]
 
-    return torch.from_numpy(np.array([min(xmins), min(ymins), max(xmaxs), max(ymaxs)]))
+    return [min(xmins), min(ymins), max(xmaxs), max(ymaxs)]
 
 
 def run_inference(model, cv2_image, update_func=None) -> np.ndarray:
@@ -72,7 +72,7 @@ def run_inference(model, cv2_image, update_func=None) -> np.ndarray:
         bboxes = output['boxes'][output['scores'] > SCORE_THRESHOLD].to('cpu')
         widest_rectangle = get_widest_rectangle(bboxes)
 
-    return widest_rectangle.numpy()
+    return widest_rectangle
 
 
 def _get_device():
