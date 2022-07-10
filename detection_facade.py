@@ -23,12 +23,10 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
     else:
         tower_bbox = tower_bbox_group.bboxes[0]
 
-    print("Tower box:", tower_bbox)
     for box_group in detection_box_groups:
         for box in box_group.bboxes:
 
             if tower_bbox is not None and not _is_inside_bbox(box, tower_bbox):
-                print("Skipping BBOX:", box, "because it is outside the tower")
                 continue
 
             xmin, ymin, xmax, ymax = [int(x) for x in box]
@@ -42,6 +40,19 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
                       tower_bbox_group.bgr_color, 2)
 
     return cv_image
+
+
+def find_outside_tower_bboxes(tower_bbox_group: BoundingBoxGroup, defect_bbox_groups: List[BoundingBoxGroup]):
+    if len(tower_bbox_group.bboxes) == 0:
+        return []
+    outside_bboxes = []
+    tower_bbox = tower_bbox_group.bboxes[0]
+    for box_group in defect_bbox_groups:
+        for box in box_group.bboxes:
+            if not _is_inside_bbox(box, tower_bbox):
+                outside_bboxes.append(box)
+
+    return outside_bboxes
 
 
 class DetectionFacade(object):
@@ -65,6 +76,9 @@ class DetectionFacade(object):
         from . import defect_worker
         return defect_worker.process_batch(defect_model_path, image_paths)
 
+    def find_skipped_bboxes(self, tower_bbox_group, defect_bbox_groups: List[BoundingBoxGroup]):
+        return find_outside_tower_bboxes(tower_bbox_group, defect_bbox_groups)
+
     def draw_detection_boxes(self, image_path, tower_bbox_group: BoundingBoxGroup, defect_bbox_groups: List[BoundingBoxGroup]):
         cv2_image = cv2.imread(image_path)
         cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
@@ -73,7 +87,6 @@ class DetectionFacade(object):
             cv2_image,
             tower_bbox_group,
             defect_bbox_groups,
-
         )
 
         return cv2_image

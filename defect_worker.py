@@ -12,7 +12,7 @@ import numpy as np
 
 plt.rcParams["savefig.bbox"] = 'tight'
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-BATCH_SIZE = 10
+BATCH_SIZE = 4
 
 
 def show(imgs):
@@ -67,15 +67,6 @@ def images_to_tensors(images):
     cuda_images = np.squeeze(cuda_images)
     return torch.from_numpy(cuda_images)
 
-# def draw_boxes(self, cv_image, bboxes):
-#         bbox_image = cv_image.copy()
-#         for box in bboxes:
-#             x1, y1, x2, y2 = box
-#             cv2.rectangle(bbox_image, (x1, y1), (x2, y2), (0, 255, 0), 12)
-
-#         return bbox_image
-
-
 def run_ineference(model, image, image_path, update_func=None):
     _, image_height, image_width = image.shape
 
@@ -107,8 +98,6 @@ def run_ineference(model, image, image_path, update_func=None):
             status = 'Processed: {}/{}'.format(tiles_processed,
                                                len(work_units))
             update_func(status)
-
-        print('Processed:', len(batch_tiles), 'tiles')
 
         batch_boxes = []
         for i, image_tile in enumerate(batch_tiles):
@@ -142,8 +131,9 @@ def run_ineference(model, image, image_path, update_func=None):
             if ymax > image_height:
                 bbox_ymax = image_height
 
-            detection_tiles.append(
-                (bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax))
+            numpy_bbox = [bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax]
+            # For JSON serialization and native python usage
+            detection_tiles.append([int(x) for x in numpy_bbox])
 
     return result_images, detection_tiles
 

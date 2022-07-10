@@ -60,7 +60,9 @@ def get_widest_rectangle(bboxes) -> torch.Tensor:
     ymins = bboxes[:, 1]
     ymaxs = bboxes[:, 3]
 
-    return [min(xmins), min(ymins), max(xmaxs), max(ymaxs)]
+    widest_rectangle = np.array(
+        [min(xmins), min(ymins), max(xmaxs), max(ymaxs)], dtype=object).tolist()
+    return [int(x) for x in widest_rectangle]
 
 
 def run_inference(model, cv2_image, update_func=None) -> np.ndarray:
