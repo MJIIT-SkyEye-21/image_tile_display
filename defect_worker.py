@@ -11,8 +11,8 @@ import numpy as np
 
 
 plt.rcParams["savefig.bbox"] = 'tight'
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-BATCH_SIZE = 4
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+BATCH_SIZE = 1
 
 
 def show(imgs):

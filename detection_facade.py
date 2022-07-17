@@ -45,6 +45,7 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
 def find_outside_tower_bboxes(tower_bbox_group: BoundingBoxGroup, defect_bbox_groups: List[BoundingBoxGroup]):
     if len(tower_bbox_group.bboxes) == 0:
         return []
+    # TODO: Include skipped bbox type
     outside_bboxes = []
     tower_bbox = tower_bbox_group.bboxes[0]
     for box_group in defect_bbox_groups:
