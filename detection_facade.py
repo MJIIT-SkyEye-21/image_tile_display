@@ -1,6 +1,7 @@
 import cv2
 from typing import Dict, List
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
 class BoundingBoxGroup(object):
     def __init__(self, label, bgr_color, bboxes) -> None:
@@ -25,7 +26,7 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
 
     for box_group in detection_box_groups:
         for box in box_group.bboxes:
-
+            print("BOX:", box)
             if tower_bbox is not None and not _is_inside_bbox(box, tower_bbox):
                 continue
 

@@ -1,29 +1,60 @@
-from pytorch_toolbelt.inference.tiles import ImageSlicer
-import torchvision.transforms as T
-from torchvision.utils import make_grid, draw_bounding_boxes
-from torchvision.io import read_image
-import matplotlib.pyplot as plt
-from PIL import Image
-import os
+from typing import List
+from unittest import result
 import cv2
 import torch
-import numpy as np
+from PIL import Image
+from torchvision import transforms
+from pytorch_toolbelt.inference.tiles import ImageSlicer
+
+model = ""
+label = ["corrosion", "peeling"]
+device = ""
+score_threshold = 0.8
 
 
-plt.rcParams["savefig.bbox"] = 'tight'
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-BATCH_SIZE = 1
+def _validate_inputs(model_path, image_paths):
+    assert isinstance(model_path, str)
+    assert isinstance(image_paths, list)
+    assert all(isinstance(path, str) for path in image_paths)
 
 
-def show(imgs):
-    if not isinstance(imgs, list):
-        imgs = [imgs]
-    fix, axs = plt.subplots(ncols=len(imgs), squeeze=False)
-    for i, img in enumerate(imgs):
-        img = img.detach()
-        img = T.ToPILImage()(img)
-        axs[0, i].imshow(np.asarray(img))
-        axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+def _validate_outputs(results):
+    if len(results) == 0:
+        return
+    assert all(isinstance(result, list) for result in results)
+    for image_results in results:
+        for bbox in image_results:
+            assert isinstance(bbox, list)
+            assert len(bbox) == 4
+            assert all(isinstance(coord, int) for coord in bbox)
+
+
+def _init_model(model_path):
+    global model, device
+
+    if model:
+        return
+
+    # Select Device
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    if torch.cuda.is_available():
+        import logging
+        logging.warn(f"Running inference on: {torch.cuda.get_device_name()}")
+    # Load Pytorch Model
+    model = torch.load(model_path, map_location=device)
+    model.eval()
+
+
+def prepare_model_input(cv_image):
+    img = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+    PIL_image = Image.fromarray(img)
+    transform = transforms.Compose([transforms.ToTensor()])
+    img = transform(PIL_image)
+    img = img.float()
+    img = img.unsqueeze(0)
+
+    return img
 
 
 def get_slices(cv2_image, tile_side, overlap_factor):
@@ -34,167 +65,70 @@ def get_slices(cv2_image, tile_side, overlap_factor):
     return slicer.split(cv2_image), slicer.bbox_crops
 
 
-def draw_result_boxes(cv2_image, boxes, score_threshold):
+def is_inside_tower(object_box, tower_area):
+    bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = object_box
+    tower_xmin, tower_ymin, tower_xmax, tower_ymax = tower_area
 
-    canvas = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
-    canvas = Image.fromarray(canvas)
-    canvas = T.PILToTensor()(canvas)
-
-    return draw_bounding_boxes(
-        canvas,
-        boxes=boxes,
-        colors="green",
-        width=4
-    )
-
-
-def images_to_tensors(images):
-    # img = Image.open(image_path)
-    # img = np.array(img)
-    cuda_images = []
-
-    for img in images:
-        # TODO: should we remove this conversion and
-        # perform inference on BGR images?
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        PIL_image = Image.fromarray(img)
-        img = T.ToTensor()(PIL_image)
-        img = img.float()
-        img = img.unsqueeze(0)
-        cuda_images.append(img)
-
-    cuda_images = np.stack(cuda_images)
-    cuda_images = np.squeeze(cuda_images)
-    return torch.from_numpy(cuda_images)
-
-def run_ineference(model, image, image_path, update_func=None):
-    _, image_height, image_width = image.shape
-
-    score_threshold = .5
-    result_images = []
-    detection_tiles = []
-    cv2_image = cv2.imread(image_path)
-
-    image_tiles, tiler_crops = get_slices(cv2_image, 224, 0)
-    boxes = []
-
-    work_units = list(zip(image_tiles, tiler_crops))
-    num_splits = len(work_units) // BATCH_SIZE
-    tiles_processed = 0
-
-    for batch in np.array_split(work_units, num_splits):
-        batch_tiles = []
-        crop_tiles = []
-
-        for (tile, crop) in batch:
-            batch_tiles.append(tile)
-            crop_tiles.append(crop)
-
-        batch_tensors = images_to_tensors(batch_tiles)
-        model_output = model(batch_tensors.to(_get_device()))
-
-        if update_func:
-            tiles_processed += len(batch_tiles)
-            status = 'Processed: {}/{}'.format(tiles_processed,
-                                               len(work_units))
-            update_func(status)
-
-        batch_boxes = []
-        for i, image_tile in enumerate(batch_tiles):
-            boxes = model_output[i]['boxes'][model_output[i]
-                                             ['scores'] > score_threshold]
-
-            # result_image = draw_result_boxes(
-            #     image_tile, boxes, score_threshold)
-            # result_images.append(result_image)
-            batch_boxes.append(boxes)
-
-        for tiler_crop, tile_boxes in zip(crop_tiles, batch_boxes):
-            if len(tile_boxes) == 0:
-                continue
-            xmin, ymin, w, h = tiler_crop
-            xmax = xmin + w
-            ymax = ymin + h
-
-            bbox_xmin = xmin
-            bbox_xmax = xmax
-            bbox_ymin = ymin
-            bbox_ymax = ymax
-
-            # Adjust tiles that are outside image bounds
-            if xmin < 0:
-                bbox_xmin = 0
-            if ymin < 0:
-                bbox_ymin = 0
-            if xmax > image_width:
-                bbox_xmax = image_width
-            if ymax > image_height:
-                bbox_ymax = image_height
-
-            numpy_bbox = [bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax]
-            # For JSON serialization and native python usage
-            detection_tiles.append([int(x) for x in numpy_bbox])
-
-    return result_images, detection_tiles
+    if bbox_xmin < tower_xmin:
+        return False
+    elif bbox_ymin < tower_ymin:
+        return False
+    elif bbox_xmax > tower_xmax:
+        return False
+    elif bbox_ymax > tower_ymax:
+        return False
+    else:
+        return True
 
 
-def display_inference_results(result_images):
-    grid = make_grid(result_images, 18)
-    show(grid)
-    plt.show()
+def get_defect_area(cv_image):
+    defect_area = []
+    image_height, image_width, *_ = cv_image.shape
+    image_tiles, tiler_crops = get_slices(cv_image, 224, 0)
+
+    for image_tile, tiler_crop in zip(image_tiles, tiler_crops):
+        xmin, ymin, w, h = tiler_crop
+        xmax = xmin + w
+        ymax = ymin + h
+
+        bbox_xmin = xmin
+        bbox_xmax = xmax
+        bbox_ymin = ymin
+        bbox_ymax = ymax
+
+        # Adjust tiles that are outside image bounds
+        if xmin < 0:
+            bbox_xmin = 0
+        if ymin < 0:
+            bbox_ymin = 0
+        if xmax > image_width:
+            bbox_xmax = image_width
+        if ymax > image_height:
+            bbox_ymax = image_height
+
+        processing_box = (bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax)
+        outputs = model(prepare_model_input(image_tile).to(device))
+
+        model_output = outputs[0]
+        pred_score = model_output['scores'][model_output['scores']
+                                            > score_threshold].tolist()
+
+        if pred_score:
+            defect_area.append(list(map(int, processing_box)))
+
+    return defect_area
 
 
-def _get_device():
-    return torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-
-def _get_model(model_path):
-    model = torch.load(model_path, map_location=_get_device())
-    model.eval()
-
-    return model
-
-
-def process_batch(model_path, image_paths):
-    model = _get_model(model_path)
+def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int]]]:
+    _validate_inputs(model_path, image_paths)
     results = []
 
+    _init_model(model_path)
+
     for image_path in image_paths:
-        img = read_image(image_path)
-        _, detection_tiles = run_ineference(
-            model,
-            img,
-            image_path
-        )
+        cv2_image = cv2.imread(image_path)
+        defect_area = get_defect_area(cv2_image)
+        results.append(defect_area)
 
-        results.append(detection_tiles)
-
+    _validate_outputs(results)
     return results
-
-
-def main(model_path, image_path, update_func=None):
-    model = _get_model(model_path)
-    # Load image as PIL.Image
-    img = read_image(image_path)
-
-    result_images, detection_tiles = run_ineference(
-        model,
-        img,
-        image_path,
-        update_func
-    )
-
-    if __name__ == '__main__':
-        display_inference_results(result_images)
-    else:
-        return detection_tiles
-
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("model_path")
-    parser.add_argument("image_path")
-
-    args = parser.parse_args()
-    main(args.model_path, args.image_path)
