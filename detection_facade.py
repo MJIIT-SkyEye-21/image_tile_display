@@ -1,7 +1,9 @@
 import cv2
 from typing import Dict, List
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]='1'
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+ORANGE_COLOR_BGR = (23,113,237)
 
 class BoundingBoxGroup(object):
     def __init__(self, label, bgr_color, bboxes) -> None:
@@ -24,21 +26,32 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
     else:
         tower_bbox = tower_bbox_group.bboxes[0]
 
+    region_bbox_colors = {}
     for box_group in detection_box_groups:
         for box in box_group.bboxes:
-            print("BOX:", box)
             if tower_bbox is not None and not _is_inside_bbox(box, tower_bbox):
                 continue
 
-            xmin, ymin, xmax, ymax = [int(x) for x in box]
-            # TODO: add label?
-            cv2.rectangle(cv_image, (xmin, ymin),
-                          (xmax, ymax), box_group.bgr_color, 2)
+            box = tuple([int(x) for x in box])
+            if box not in region_bbox_colors:
+                region_bbox_colors[box] = []
+
+            region_bbox_colors[box].append(box_group.bgr_color)
+
+    for box, colors in region_bbox_colors.items():
+        # TODO: add label?
+        xmin, ymin, xmax, ymax = box
+        bgr_color = colors[0]
+        
+        if len(colors) > 1:
+            bgr_color = ORANGE_COLOR_BGR
+        
+        cv2.rectangle(cv_image, (xmin, ymin),(xmax, ymax), bgr_color, 4)
 
     if tower_bbox is not None:
         xmin, ymin, xmax, ymax = [int(x) for x in tower_bbox]
         cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax),
-                      tower_bbox_group.bgr_color, 2)
+                      tower_bbox_group.bgr_color, 4)
 
     return cv_image
 
