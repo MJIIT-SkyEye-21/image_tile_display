@@ -5,9 +5,7 @@ import logging
 from PIL import Image
 from torchvision import transforms
 
-tower_model = ""
 tower_label = ["__background__", "MW", "RF", "tower"]
-device = ""
 score_threshold = 0.8
 
 
@@ -28,11 +26,6 @@ def _validate_outputs(results):
 
 
 def _init_model(model_path):
-    global tower_model, device
-
-    if tower_model:
-        return
-
     # Select Device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
@@ -41,6 +34,7 @@ def _init_model(model_path):
     # Load Pytorch Model
     tower_model = torch.load(model_path, map_location=device)
     tower_model.eval()
+    return tower_model
 
 
 def prepare_model_input(cv_image):
@@ -54,7 +48,8 @@ def prepare_model_input(cv_image):
     return img
 
 
-def get_tower_region(cv_image):
+def get_tower_region(cv_image, tower_model):
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     buffer_image = cv_image.copy()
     image_height, image_width, *_ = buffer_image.shape
     outputs = tower_model(prepare_model_input(buffer_image).to(device))
@@ -82,13 +77,13 @@ def get_tower_region(cv_image):
             bbox_ymax = ymax+margin
 
             # Adjust tower area that are outside image bounds
-            if xmin < 0:
+            if bbox_xmin < 0:
                 bbox_xmin = 0
-            if ymin < 0:
+            if bbox_ymin < 0:
                 bbox_ymin = 0
-            if xmax > image_width:
+            if bbox_xmax > image_width:
                 bbox_xmax = image_width
-            if ymax > image_height:
+            if bbox_ymax > image_height:
                 bbox_ymax = image_height
 
             tower_area = [bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax]
@@ -101,13 +96,14 @@ def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int
     _validate_inputs(model_path, image_paths)
     results = []
 
-    _init_model(model_path)
+    model = _init_model(model_path)
 
     for image_path in image_paths:
         cv2_image = cv2.imread(image_path)
 
-        tower_area = get_tower_region(cv2_image)
+        tower_area = get_tower_region(cv2_image, model)
         results.append(tower_area)
     
     _validate_outputs(results)
+    del model
     return results
