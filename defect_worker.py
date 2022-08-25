@@ -2,13 +2,13 @@ from typing import List
 from unittest import result
 import cv2
 import torch
+import logging
 from PIL import Image
 from torchvision import transforms
 from pytorch_toolbelt.inference.tiles import ImageSlicer
 
-model = ""
+worker_logger = logging.getLogger('defect_worker')
 label = ["corrosion", "peeling"]
-device = ""
 score_threshold = 0.8
 
 
@@ -30,20 +30,15 @@ def _validate_outputs(results):
 
 
 def _init_model(model_path):
-    global model, device
-
-    if model:
-        return
-
     # Select Device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     if torch.cuda.is_available():
-        import logging
-        logging.warn(f"Running inference on: {torch.cuda.get_device_name()}")
+        worker_logger.warn(f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     model = torch.load(model_path, map_location=device)
     model.eval()
+    return model
 
 
 def prepare_model_input(cv_image):
@@ -81,7 +76,8 @@ def is_inside_tower(object_box, tower_area):
         return True
 
 
-def get_defect_area(cv_image):
+def get_defect_area(cv_image, model):
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     defect_area = []
     image_height, image_width, *_ = cv_image.shape
     image_tiles, tiler_crops = get_slices(cv_image, 224, 0)
@@ -123,12 +119,15 @@ def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int
     _validate_inputs(model_path, image_paths)
     results = []
 
-    _init_model(model_path)
-
+    model = _init_model(model_path)
+    bbox_count = 0
     for image_path in image_paths:
         cv2_image = cv2.imread(image_path)
-        defect_area = get_defect_area(cv2_image)
+        defect_area = get_defect_area(cv2_image, model)
+        bbox_count += len(defect_area)
         results.append(defect_area)
-
+    
+    worker_logger.warn(f'Model: {model_path} found {bbox_count} detections')
     _validate_outputs(results)
+    del model
     return results
