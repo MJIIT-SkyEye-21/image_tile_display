@@ -7,7 +7,7 @@ from PIL import Image
 from torchvision import transforms
 from pytorch_toolbelt.inference.tiles import ImageSlicer
 
-worker_logger = logging.getLogger('defect_worker')
+worker_logger = logging.getLogger('tiled_worker')
 label = ["corrosion", "peeling"]
 score_threshold = 0.8
 
@@ -106,6 +106,7 @@ def get_defect_area(cv_image, model):
         outputs = model(prepare_model_input(image_tile).to(device))
 
         model_output = outputs[0]
+        # TODO: Add label to result
         pred_score = model_output['scores'][model_output['scores']
                                             > score_threshold].tolist()
 

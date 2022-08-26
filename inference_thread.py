@@ -48,7 +48,7 @@ class InferenceThread(QtCore.QThread):
             [tower_bbox]
         )
         input_images = [self.image_path]
-        results = self.detector.batch_detect_defects(
+        results = self.detector.batch_tiled_detect(
             self.defect_model_path, input_images)
 
         # import cv2

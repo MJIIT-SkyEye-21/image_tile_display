@@ -75,9 +75,9 @@ class DetectionFacade(object):
         import tower_worker
         return tower_worker.main(tower_model_path, image_path)
 
-    def detect_defects(self, defect_model_path: str, image_path: str, on_status_update: callable) -> List[List[int]]:
-        import defect_worker
-        return defect_worker.main(
+    def tiled_detect(self, defect_model_path: str, image_path: str, on_status_update: callable) -> List[List[int]]:
+        import batch.src.image_tile_display.tiled_worker as tiled_worker
+        return tiled_worker.main(
             defect_model_path,
             image_path,
             lambda update_str: on_status_update(update_str)
@@ -87,9 +87,9 @@ class DetectionFacade(object):
         from . import tower_worker
         return tower_worker.process_batch(tower_model_path, image_paths)
 
-    def batch_detect_defects(self, defect_model_path: str, image_paths: List[str]) -> List[List[int]]:
-        from . import defect_worker
-        return defect_worker.process_batch(defect_model_path, image_paths)
+    def batch_tiled_detect(self, defect_model_path: str, image_paths: List[str]) -> List[List[int]]:
+        from . import tiled_worker
+        return tiled_worker.process_batch(defect_model_path, image_paths)
 
     def find_skipped_bboxes(self, tower_bbox_group, defect_bbox_groups: List[BoundingBoxGroup]):
         return find_outside_tower_bboxes(tower_bbox_group, defect_bbox_groups)
