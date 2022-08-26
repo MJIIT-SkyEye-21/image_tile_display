@@ -7,6 +7,7 @@ from torchvision import transforms
 
 tower_label = ["__background__", "MW", "RF", "tower"]
 score_threshold = 0.8
+worker_logger = logging.getLogger('tower_worker')
 
 
 def _validate_inputs(model_path, image_paths):
@@ -30,7 +31,7 @@ def _init_model(model_path):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
     if torch.cuda.is_available():
-        logging.warn(f"Running inference on: {torch.cuda.get_device_name()}")
+        worker_logger.warning(f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     tower_model = torch.load(model_path, map_location=device)
     tower_model.eval()
