@@ -3,6 +3,7 @@ from unittest import result
 import cv2
 import torch
 import logging
+from .models import Detection
 from PIL import Image
 from torchvision import transforms
 from pytorch_toolbelt.inference.tiles import ImageSlicer
@@ -18,23 +19,28 @@ def _validate_inputs(model_path, image_paths):
     assert all(isinstance(path, str) for path in image_paths)
 
 
-def _validate_outputs(results):
+def _validate_outputs(results: List[List[Detection]]):
     if len(results) == 0:
         return
     assert all(isinstance(result, list) for result in results)
     for image_results in results:
-        for bbox in image_results:
-            assert isinstance(bbox, list)
-            assert len(bbox) == 4
-            assert all(isinstance(coord, int) for coord in bbox)
+        image_results: List[Detection] = image_results
+        for detection in image_results:
+            assert isinstance(detection, Detection)
+            assert isinstance(detection.label_id, int)
+            assert isinstance(detection.bbox, list)
+            assert len(detection.bbox) == 4
+            assert all(isinstance(coord, int) for coord in detection.bbox)
 
 
 def _init_model(model_path):
     # Select Device
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device(
+        'cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     if torch.cuda.is_available():
-        worker_logger.warn(f"Running inference on: {torch.cuda.get_device_name()}")
+        worker_logger.warn(
+            f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     model = torch.load(model_path, map_location=device)
     model.eval()
@@ -76,9 +82,10 @@ def is_inside_tower(object_box, tower_area):
         return True
 
 
-def get_defect_area(cv_image, model):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    defect_area = []
+def get_defect_areas(cv_image, model) -> List[Detection]:
+    device = torch.device(
+        'cuda') if torch.cuda.is_available() else torch.device('cpu')
+    detections = []
     image_height, image_width, *_ = cv_image.shape
     image_tiles, tiler_crops = get_slices(cv_image, 224, 0)
 
@@ -106,14 +113,18 @@ def get_defect_area(cv_image, model):
         outputs = model(prepare_model_input(image_tile).to(device))
 
         model_output = outputs[0]
-        # TODO: Add label to result
         pred_score = model_output['scores'][model_output['scores']
+                                            > score_threshold].tolist()
+        pred_label = model_output['labels'][model_output['scores']
                                             > score_threshold].tolist()
 
         if pred_score:
-            defect_area.append(list(map(int, processing_box)))
+            bbox = [int(x) for x in processing_box]
+            # because index 0 is for __background__ class in pytorch output
+            label_index = int(pred_label[pred_score.index(max(pred_score))])-1
+            detections.append(Detection(label_index, bbox))
 
-    return defect_area
+    return detections
 
 
 def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int]]]:
@@ -124,10 +135,12 @@ def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int
     bbox_count = 0
     for image_path in image_paths:
         cv2_image = cv2.imread(image_path)
-        defect_area = get_defect_area(cv2_image, model)
+        defect_area = get_defect_areas(cv2_image, model)
         bbox_count += len(defect_area)
+        # Append results for each image, even if they're empty
+        # to denote that this image has no corresponding detections
         results.append(defect_area)
-    
+
     worker_logger.warn(f'Model: {model_path} found {bbox_count} detections')
     _validate_outputs(results)
     del model

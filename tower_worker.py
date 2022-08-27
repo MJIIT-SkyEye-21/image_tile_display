@@ -2,6 +2,7 @@ from typing import List
 import cv2
 import torch
 import logging
+from .models import Detection
 from PIL import Image
 from torchvision import transforms
 
@@ -20,18 +21,23 @@ def _validate_outputs(results):
     if len(results) == 0:
         return
     assert all(isinstance(result, list) for result in results)
-    for bbox in results:
-        assert isinstance(bbox, list)
-        assert len(bbox) == 4
-        assert all(isinstance(coord, int) for coord in bbox)
+    for image_results in results:
+        for result in image_results:
+            assert isinstance(result, Detection)
+            assert isinstance(result.bbox, list)
+            assert isinstance(result.label_id, int)
+            assert len(result.bbox) == 4
+            assert all(isinstance(coord, int) for coord in result.bbox)
 
 
 def _init_model(model_path):
     # Select Device
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    
+    device = torch.device(
+        'cuda') if torch.cuda.is_available() else torch.device('cpu')
+
     if torch.cuda.is_available():
-        worker_logger.warning(f"Running inference on: {torch.cuda.get_device_name()}")
+        worker_logger.warning(
+            f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     tower_model = torch.load(model_path, map_location=device)
     tower_model.eval()
@@ -49,18 +55,20 @@ def prepare_model_input(cv_image):
     return img
 
 
-def get_tower_region(cv_image, tower_model):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+def get_tower_region(cv_image, tower_model) -> List[Detection]:
+    device = torch.device(
+        'cuda') if torch.cuda.is_available() else torch.device('cpu')
     buffer_image = cv_image.copy()
     image_height, image_width, *_ = buffer_image.shape
     outputs = tower_model(prepare_model_input(buffer_image).to(device))
-    
+
     if len(outputs) == 0:
         pass
     model_output = outputs[0]
-    pred_label = model_output['labels'][model_output['scores'] > score_threshold].tolist()
+    pred_label = model_output['labels'][model_output['scores']
+                                        > score_threshold].tolist()
 
-    tower_area = [0,0,0,0]
+    detections = []
 
     for index in range(len(pred_label)):
         label_id = pred_label[index]
@@ -88,9 +96,11 @@ def get_tower_region(cv_image, tower_model):
                 bbox_ymax = image_height
 
             tower_area = [bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax]
-            break
-
-    return list(map(int, tower_area))
+            tower_area = [int(x) for x in tower_area]
+            label_id = label_id - 1 # __background__ is id 0
+            detections.append(Detection(label_id, tower_area))
+    
+    return detections
 
 
 def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int]]]:
