@@ -3,12 +3,13 @@ from typing import Dict, List
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '1'
-ORANGE_COLOR_BGR = (23,113,237)
+ORANGE_COLOR_BGR = (23, 113, 237)
+
 
 class BoundingBoxGroup(object):
-    def __init__(self, label, bgr_color, bboxes) -> None:
+    def __init__(self, label, hex_color, bboxes) -> None:
         self.label = label
-        self.bgr_color = bgr_color
+        self.hex_color = hex_color
         self.bboxes = bboxes
 
 
@@ -16,6 +17,13 @@ def _is_inside_bbox(det, background):
     xmin, ymin, xmax, ymax = det
     xmin_bg, ymin_bg, xmax_bg, ymax_bg = background
     return xmin >= xmin_bg and xmax <= xmax_bg and ymin >= ymin_bg and ymax <= ymax_bg
+
+
+def _hext_to_bgr(hex_color):
+    rgb_color = hex_color.lstrip('#')
+    r, g, b = tuple(int(rgb_color[i:i+2], 16) for i in (0, 2, 4))
+
+    return (b, g, r)
 
 
 def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_groups: List[BoundingBoxGroup]):
@@ -36,22 +44,28 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
             if box not in region_bbox_colors:
                 region_bbox_colors[box] = []
 
-            region_bbox_colors[box].append(box_group.bgr_color)
+            region_bbox_colors[box].append(box_group.hex_color)
 
     for box, colors in region_bbox_colors.items():
         # TODO: add label?
         xmin, ymin, xmax, ymax = box
         bgr_color = colors[0]
-        
+
         if len(colors) > 1:
             bgr_color = ORANGE_COLOR_BGR
-        
-        cv2.rectangle(cv_image, (xmin, ymin),(xmax, ymax), bgr_color, 4)
+
+        if isinstance(bgr_color, str):
+            bgr_color = _hext_to_bgr(bgr_color)
+
+        cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax), bgr_color, 4)
 
     if tower_bbox is not None:
+        if isinstance(tower_bbox_group.hex_color, str):
+            bgr_color = _hext_to_bgr(tower_bbox_group.hex_color)
+
         xmin, ymin, xmax, ymax = [int(x) for x in tower_bbox]
         cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax),
-                      tower_bbox_group.bgr_color, 4)
+                      bgr_color, 4)
 
     return cv_image
 
