@@ -12,6 +12,12 @@ class BoundingBoxGroup(object):
         self.hex_color = hex_color
         self.bboxes = bboxes
 
+    def __repr__(self) -> str:
+        return f"Label: {self.label} | Hex: {self.hex_color} | BBoxes:{self.bboxes}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 def _is_inside_bbox(det, background):
     xmin, ymin, xmax, ymax = det
