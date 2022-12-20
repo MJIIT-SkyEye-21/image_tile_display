@@ -1,8 +1,6 @@
 import cv2
 from typing import Dict, List
-import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 ORANGE_COLOR_BGR = (23, 113, 237)
 
 
