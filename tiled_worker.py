@@ -39,7 +39,7 @@ def _init_model(model_path):
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     if torch.cuda.is_available():
-        worker_logger.warn(
+        worker_logger.warning(
             f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     model = torch.load(model_path, map_location=device)
@@ -141,7 +141,7 @@ def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int
         # to denote that this image has no corresponding detections
         results.append(defect_area)
 
-    worker_logger.warn(f'Model: {model_path} found {bbox_count} detections')
+    worker_logger.warning(f'Model: {model_path} found {bbox_count} detections')
     _validate_outputs(results)
     del model
     return results
