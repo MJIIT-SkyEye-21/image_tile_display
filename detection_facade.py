@@ -1,7 +1,7 @@
 import cv2
 from typing import Dict, List
 
-ORANGE_COLOR_BGR = (23, 113, 237)
+MULTIPLE_DETECTION_COLOR_BGR = (255, 255, 0)
 
 
 class BoundingBoxGroup(object):
@@ -56,7 +56,7 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
         bgr_color = colors[0]
 
         if len(colors) > 1:
-            bgr_color = ORANGE_COLOR_BGR
+            bgr_color = MULTIPLE_DETECTION_COLOR_BGR
 
         if isinstance(bgr_color, str):
             bgr_color = _hext_to_bgr(bgr_color)
