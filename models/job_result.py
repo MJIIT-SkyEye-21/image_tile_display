@@ -28,9 +28,9 @@ class JobResult(object):
         image_filename: str,
         image_region_summary: Dict[str, int]
     ):
-        if side_name not in self.skipped:
-            self.skipped[side_name] = {}
-        self.skipped[side_name][image_filename] = image_region_summary
+        if side_name not in self.regions:
+            self.regions[side_name] = {}
+        self.regions[side_name][image_filename] = image_region_summary
 
     def add_bounding_box_group(
         self,
