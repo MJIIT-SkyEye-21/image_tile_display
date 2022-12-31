@@ -2,7 +2,7 @@ from typing import List
 import cv2
 import torch
 import logging
-from .models import Detection
+from .models.detection import Detection
 from PIL import Image
 from torchvision import transforms
 
