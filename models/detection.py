@@ -21,7 +21,7 @@ class Detection(object):
         }
 
     def __repr__(self) -> str:
-        return f'LabelId:{self.label_id} BBox:{self.bbox}'
+        return f'LabelId:{self.label_id}({self.detection_class_name}) BBox:{self.bbox}'
 
     def __str__(self) -> str:
         return self.__repr__()
