@@ -37,10 +37,6 @@ def _init_model(model_path):
     # Select Device
     device = torch.device(
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-    if torch.cuda.is_available():
-        worker_logger.warning(
-            f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     model = torch.load(model_path, map_location=device)
     model.eval()
@@ -127,7 +123,7 @@ def get_defect_areas(cv_image, model) -> List[Detection]:
     return detections
 
 
-def process_batch(model_path: str, image_paths: List[str]) -> List[List[List[int]]]:
+def process_batch(model_path: str, image_paths: List[str]) -> List[List[Detection]]:
     _validate_inputs(model_path, image_paths)
     results = []
 

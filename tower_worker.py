@@ -36,7 +36,7 @@ def _init_model(model_path):
         'cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     if torch.cuda.is_available():
-        worker_logger.warning(
+        worker_logger.info(
             f"Running inference on: {torch.cuda.get_device_name()}")
     # Load Pytorch Model
     tower_model = torch.load(model_path, map_location=device)

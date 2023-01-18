@@ -118,7 +118,7 @@ class TiledDetector():
         else:
             return True
 
-    def run(self, image_path: str):
+    def run(self, image_path: str) -> List[Detection]:
         self.prepare_model()
         img = read_image(image_path)
         _, image_height, image_width = img.shape
@@ -129,7 +129,8 @@ class TiledDetector():
         tower_area = self.get_tower_region(cv2_image)
 
         if not tower_area:
-            raise RuntimeError("Tower not found")
+            worker_logger.warning(f"No tower detected: {image_path}")
+            return []
 
         image_tiles, tiler_crops = self.get_slices(cv2_image, 224, 0)
 
@@ -194,14 +195,14 @@ class TiledDetector():
         return final_result
 
 
-def main(image_path: str, defect_model_path: str, tower_model_path: str):
+def main(image_path: str, tower_model_path: str, defect_model_path: str):
     g = TiledDetector(defect_model_path, tower_model_path)
     return g.run(image_path)
 
 
 def process_batch(
-    defect_model_path: str,
     tower_model_path: str,
+    defect_model_path: str,
     image_paths: List[str]
 ) -> List[List[Detection]]:
     results = []
