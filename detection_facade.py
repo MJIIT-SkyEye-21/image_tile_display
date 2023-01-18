@@ -54,8 +54,9 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
         else:
             bgr_color = _hext_to_bgr(region_detections.detections[0].hex_color)
 
-        xmin, ymin, xmax, ymax = region_detections.bbox_image_region
-        cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax), bgr_color, 4)
+        border_width = 4
+        start, end = region_detections.get_drawable_bbox(border_width)
+        cv2.rectangle(cv_image, start, end, bgr_color, border_width)
 
     if tower_detection is not None:
         bgr_color = _hext_to_bgr(tower_bbox_group.hex_color)
