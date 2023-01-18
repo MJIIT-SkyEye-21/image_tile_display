@@ -13,3 +13,11 @@ class ImageRegionBBoxes(object):
 
     def add_bbox(self, box: Detection):
         self.detections.append(box)
+
+    def get_drawable_bbox(self, border_width):
+        xmin, ymin, xmax, ymax = self.bbox_image_region
+        bbox_clearence = border_width + 1
+        return [
+            (xmin + bbox_clearence, ymin + bbox_clearence),
+            (xmax - bbox_clearence, ymax - bbox_clearence),
+        ]
