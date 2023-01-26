@@ -1,3 +1,4 @@
+from .models.model_label import ModelLabel
 import cv2
 from .models.image_region_bboxes import ImageRegionBBoxes
 from .models.bounding_box_group import BoundingBoxGroup
@@ -42,7 +43,7 @@ def draw_boxes(cv_image, tower_bbox_group: BoundingBoxGroup, detection_box_group
             # BBOX of detection is the image region if it's a tiled model
             # OR a normal image patch if it's a full image model
             image_region_coordinates = tuple(detection.bbox)
-            if detection not in image_region_bboxes:
+            if image_region_coordinates not in image_region_bboxes:
                 image_region_bboxes[image_region_coordinates] = ImageRegionBBoxes(
                     detection.bbox)
 
@@ -107,13 +108,15 @@ class DetectionFacade(object):
         self,
         tower_model_path: str,
         defect_model_path: str,
-        image_paths: List[str]
+        image_paths: List[str],
+        labels: List[ModelLabel]
     ):
         from . import tiled_detector as td
         return td.process_batch(
             tower_model_path,
             defect_model_path,
             image_paths,
+            labels
         )
 
     def find_skipped_bboxes(self, tower_bbox_group, defect_bbox_groups: List[BoundingBoxGroup]):

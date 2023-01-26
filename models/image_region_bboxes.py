@@ -16,7 +16,7 @@ class ImageRegionBBoxes(object):
 
     def get_drawable_bbox(self, border_width):
         xmin, ymin, xmax, ymax = self.bbox_image_region
-        bbox_clearence = border_width + 1
+        bbox_clearence = border_width + 3
         return [
             (xmin + bbox_clearence, ymin + bbox_clearence),
             (xmax - bbox_clearence, ymax - bbox_clearence),

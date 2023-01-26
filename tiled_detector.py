@@ -8,6 +8,7 @@ from torchvision import transforms
 from torchvision.io import read_image
 from pytorch_toolbelt.inference.tiles import ImageSlicer
 from .models.detection import Detection
+from image_tile_display.models.model_label import ModelLabel
 worker_logger = logging.getLogger('tiled_detector')
 
 SCORE_THRESHOLD = 0.8
@@ -118,7 +119,11 @@ class TiledDetector():
         else:
             return True
 
-    def run(self, image_path: str) -> List[Detection]:
+    def run(
+        self,
+        image_path: str,
+        labels: List[ModelLabel]
+    ) -> List[Detection]:
         self.prepare_model()
         img = read_image(image_path)
         _, image_height, image_width = img.shape
@@ -189,6 +194,8 @@ class TiledDetector():
                 processing_box
             )
 
+            detection.detection_class_name = labels[max_label]
+
             final_result.append(detection)
             tile_number += 1
 
@@ -203,19 +210,20 @@ def main(image_path: str, tower_model_path: str, defect_model_path: str):
 def process_batch(
     tower_model_path: str,
     defect_model_path: str,
-    image_paths: List[str]
+    image_paths: List[str],
+    labels: List[ModelLabel]
 ) -> List[List[Detection]]:
     results = []
-    g = TiledDetector(defect_model_path, tower_model_path)
+    detector = TiledDetector(defect_model_path, tower_model_path)
     tiled_detection_count = 0
     for image_path in image_paths:
-        g.run(image_path)
-        defect_areas = g.run(image_path)
+        defect_areas = detector.run(image_path, labels)
         tiled_detection_count += len(defect_areas)
 
         # Append results for each image, even if they're empty
         # to denote that this image has no corresponding detections
         results.append(defect_areas)
+        print("DEFECT AREAS:\n\t", "\n\t".join([str(d) for d in defect_areas]))
 
     worker_logger.info(
         f'Model: {defect_model_path} found {tiled_detection_count} detections in {len(image_paths)} images')
