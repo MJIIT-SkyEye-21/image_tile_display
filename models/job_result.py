@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import List
 from .detection import Detection
 from .bounding_box_group import BoundingBoxGroup
 
@@ -21,16 +21,6 @@ class JobResult(object):
             self.skipped[side_name] = {}
         self.skipped[side_name][image_filename] = [
             detection.bbox for detection in out_of_bound_detections]
-
-    def add_image_region_summary(
-        self,
-        side_name: str,
-        image_filename: str,
-        image_region_summary: Dict[str, int]
-    ):
-        if side_name not in self.regions:
-            self.regions[side_name] = {}
-        self.regions[side_name][image_filename] = image_region_summary
 
     def add_bounding_box_group(
         self,

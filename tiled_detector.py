@@ -7,8 +7,6 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.io import read_image
 from pytorch_toolbelt.inference.tiles import ImageSlicer
-from .models.detection import Detection
-from image_tile_display.models.model_label import ModelLabel
 worker_logger = logging.getLogger('tiled_detector')
 
 SCORE_THRESHOLD = 0.8
@@ -119,11 +117,7 @@ class TiledDetector():
         else:
             return True
 
-    def run(
-        self,
-        image_path: str,
-        labels: List[ModelLabel]
-    ) -> List[Detection]:
+    def run(self, image_path: str) -> List:
         self.prepare_model()
         img = read_image(image_path)
         _, image_height, image_width = img.shape
@@ -189,47 +183,65 @@ class TiledDetector():
             if max_label == 0:
                 continue
 
-            detection = Detection(
-                max_label,
-                processing_box
-            )
-
-            detection.detection_class_name = labels[max_label]
-
-            final_result.append(detection)
+            final_result.append([max_label, processing_box])
             tile_number += 1
 
         return final_result
 
 
-def main(image_path: str, tower_model_path: str, defect_model_path: str):
+def main(tower_model_path: str, defect_model_path: str, image_path: str):
     g = TiledDetector(defect_model_path, tower_model_path)
-    return g.run(image_path)
+    defect_areas = g.run(image_path)
+    print(f"DEFECT AREAS: ({image_path})\n\t", "\n\t".join(
+        [str({"label": label_index, "bbox":bbox}) for [label_index, bbox] in defect_areas]), sep="")
+    print("Found:", len(defect_areas), "results")
+    return defect_areas
 
 
 def process_batch(
     tower_model_path: str,
     defect_model_path: str,
     image_paths: List[str],
-    labels: List[ModelLabel]
-) -> List[List[Detection]]:
+    labels: List
+) -> List:
+    from image_tile_display.models.detection import Detection
+    from image_tile_display.models.model_label import ModelLabel
+    model_labels: List[ModelLabel] = labels
+
     results = []
     detector = TiledDetector(defect_model_path, tower_model_path)
-    tiled_detection_count = 0
+
     for image_path in image_paths:
-        defect_areas = detector.run(image_path, labels)
-        tiled_detection_count += len(defect_areas)
+        defect_areas = detector.run(image_path)
+        detections = []
+        for [label_index, bbox] in defect_areas:
+            detection = Detection(
+                label_index,
+                bbox
+            )
+            detection.detection_class_name = model_labels[label_index]
+            detections.append(detection)
 
         # Append results for each image, even if they're empty
         # to denote that this image has no corresponding detections
-        results.append(defect_areas)
-        print("DEFECT AREAS:\n\t", "\n\t".join([str(d) for d in defect_areas]))
+        # print(f"DEFECT AREAS: ({image_path})\n\t", "\n\t".join(
+        #     [str(d) for d in defect_areas]), sep="")
 
-    worker_logger.info(
-        f'Model: {defect_model_path} found {tiled_detection_count} detections in {len(image_paths)} images')
+        worker_logger.info(f'Model: {defect_model_path} found {len(defect_areas)} detections in [{image_path}]')
+        results.append(detections)
+
+    # worker_logger.info(
+    #     f'Model: {defect_model_path} found {tiled_detection_count} detections in {len(image_paths)} images')
 
     return results
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    model_path_dict = {
+        'tower': '../models/tower_lattice_12_fasterrcnn_resnet50_fpn.pth',
+        'corrosion': '../models/corrosion_lattice_RGW_10_fasterrcnn_resnet50_fpn.pth',
+        'peel': '../models/peel_lattice_RGW_10_fasterrcnn_resnet50_fpn.pth',
+        'moss': '../models/moss_lattice_RGW_3_fasterrcnn_resnet50_fpn.pth'
+    }
+    main(model_path_dict[sys.argv[1]],
+         model_path_dict[sys.argv[2]], sys.argv[3])
